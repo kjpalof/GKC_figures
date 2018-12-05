@@ -66,6 +66,13 @@ recruit_only %>%
                 width =.4) +
   facet_wrap(~I_FISHERY)
 
-
+recruit_only_adj %>% 
+  filter(!(is.na(I_FISHERY))) %>% 
+  ggplot(aes(YEAR, meanR)) + 
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = meanR - (SD*1.96), ymax = meanR + (SD*1.96)), 
+                width =.4) +
+  facet_wrap(~I_FISHERY)
   
 
