@@ -10,55 +10,46 @@ source("./code/helper.R")
 # Data --------------
 # need harvest data to complete graphs like they are previously done.  Focus on percent recruit right now.
 # dockside or port sampling data is from ALEX and is held in multiple files
-gkc_portsamp <- read.csv('./data/dockside_11_18.csv')
+gkc_portsamp <- read_xlsx('./data/dockside_11_18.xlsx', sheet = "AlexData", skip = 13)
+gkc_samp2 <- read_xlsx('./data/dockside_95_10.xlsx', sheet = "AlexData", skip = 13)
 head(gkc_portsamp)
 
-#munipulation
-# recruits on bottom
-gkc_portsamp %>%
-  mutate(prop_recruits = prop_recruits/100) %>%
-  mutate(prop_post = 1 - prop_recruits, lb_recruit = prop_recruits*Sum.POUNDS. , 
-         lb_post = prop_post*Sum.POUNDS.)%>%
-  mutate(lb_other = ifelse(is.na(prop_recruits), Sum.POUNDS., 0 ))-> gkc_portsamp1
 
-#bar graph
-#east central 
+# clean -up ------------
+gkc_samp2 %>% 
+  select(YEAR, SEASON, PROJECT_CODE, PROJECT, TRIP_NO, ADFG_NO, SAMPLE_DATE, TICKET_NO, 
+         I_FISHERY_CODE, I_FISHERY, DISTRICT, SUB_DISTRICT, SPECIMEN_NO, SPECIES_CODE, 
+         SEX_CODE, RECRUIT_STATUS, LENGTH_MILLIMETERS, SHELL_CONDITION_CODE) -> gkc_samp2
+gkc_portsamp %>% 
+  select(YEAR, SEASON, PROJECT_CODE, PROJECT, TRIP_NO, ADFG_NO, SAMPLE_DATE, TICKET_NO, 
+         I_FISHERY_CODE, I_FISHERY, DISTRICT, SUB_DISTRICT, SPECIMEN_NO, SPECIES_CODE, 
+         SEX_CODE, RECRUIT_STATUS, LENGTH_MILLIMETERS, SHELL_CONDITION_CODE) %>% 
+  bind_rows(gkc_samp2) -> gkc
 
-gkc_portsamp1 %>%
-  filter(I_FISHERY == "East Central GKC") -> ec_gkc
-ec_gkc %>%
-  gather(harvest, lbs, lb_recruit:lb_other) ->ec_gkc1
 
-p1 <- ggplot(ec_gkc1, aes(x=YEAR, y = lbs, fill = harvest))+ 
-  geom_bar(stat = 'identity', color = "black", width = 0.8) 
+# recruit status summary --------------
+gkc %>% 
+  group_by(YEAR, SEASON, I_FISHERY, TRIP_NO, RECRUIT_STATUS) %>% 
+  summarise(n = n()) -> status
 
-p1 <- p1 +  scale_fill_manual(values = c("gray", "white", "black"), 
-                              labels = c("no data", "post recruits", "recruits")) +
-  guides(fill=guide_legend(title = NULL))
-p1 <- p1 + labs(title = "East Central", y = "Harvest (lb)") 
+gkc %>% 
+  group_by(YEAR, SEASON, I_FISHERY, TRIP_NO) %>% 
+  summarise(total = n()) -> total_bytrip
+
+status %>% 
+  left_join(total_bytrip) %>% 
+  mutate(recruit_percent = n/total) %>% 
+  filter(RECRUIT_STATUS == "Recruit") -> recruit_only
+
+recruit_only %>% 
+  filter(n >= 20) -> recruit_only_adj
+
+
+# figures -----------
+recruit_only %>% 
+  ggplot(aes(YEAR, recruit_percent)) + geom_point() +
+  facet_wrap(~I_FISHERY)
+
+
   
-
-#munipulation
-# recruits on bottom
-gkc_portsamp %>%
-  mutate(prop_recruits = prop_recruits/100) %>%
-  mutate(prop_post = 1 - prop_recruits, lb_post = prop_post*Sum.POUNDS., 
-         lb_recruit = prop_recruits*Sum.POUNDS.) %>%
-  mutate(lb_other = ifelse(is.na(prop_recruits), Sum.POUNDS., 0 ))-> gkc_portsamp2
-
-#bar graph
-#east central 
-
-gkc_portsamp2 %>%
-  filter(I_FISHERY == "East Central GKC") -> ec_gkc
-ec_gkc %>%
-  gather(harvest, lbs, lb_post:lb_other) ->ec_gkc1
-
-p1 <- ggplot(ec_gkc1, aes(x=YEAR, y = lbs, fill = harvest))+ 
-  geom_bar(stat = 'identity', color = "black", width = 0.8) 
-
-p1 <- p1 +  scale_fill_manual(values = c("gray", "white", "black"), 
-                              labels = c("no data", "post recruits", "recruits")) +
-  guides(fill=guide_legend(title = NULL))
-p1 <- p1 + labs(title = "East Central", y = "Harvest (lb)") 
 
