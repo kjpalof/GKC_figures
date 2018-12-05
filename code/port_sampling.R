@@ -36,18 +36,34 @@ gkc %>%
   group_by(YEAR, SEASON, I_FISHERY, TRIP_NO) %>% 
   summarise(total = n()) -> total_bytrip
 
+# all data included
 status %>% 
   left_join(total_bytrip) %>% 
   mutate(recruit_percent = n/total) %>% 
-  filter(RECRUIT_STATUS == "Recruit") -> recruit_only
+  filter(RECRUIT_STATUS == "Recruit") %>% 
+  group_by(YEAR, SEASON, I_FISHERY) %>% 
+  summarise(meanR = mean(recruit_percent, na.rm = TRUE), SD = sd(recruit_percent, na.rm = TRUE), 
+            n = length(unique(TRIP_NO)))-> recruit_only
 
-recruit_only %>% 
-  filter(n >= 20) -> recruit_only_adj
+# those trips with less than 20 crab excluded 
+status %>% 
+  left_join(total_bytrip) %>% 
+  mutate(recruit_percent = n/total) %>% 
+  filter(RECRUIT_STATUS == "Recruit") %>% 
+  filter(n >= 20) %>% 
+  group_by(YEAR, SEASON, I_FISHERY) %>% 
+  summarise(meanR = mean(recruit_percent, na.rm = TRUE), SD = sd(recruit_percent, na.rm = TRUE), 
+            n = length(unique(TRIP_NO))) -> recruit_only_adj
 
 
 # figures -----------
 recruit_only %>% 
-  ggplot(aes(YEAR, recruit_percent)) + geom_point() +
+  filter(!(is.na(I_FISHERY))) %>% 
+  ggplot(aes(YEAR, meanR)) + 
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = meanR - (SD*1.96), ymax = meanR + (SD*1.96)), 
+                width =.4) +
   facet_wrap(~I_FISHERY)
 
 
